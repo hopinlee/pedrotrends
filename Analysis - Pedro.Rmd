@@ -45,20 +45,19 @@ tr <- pedro.data %>% group_by(year) %>% count(method)  # grouping the data by ye
 
 # Now you want to plot "n" by "year" 
 tr.trend <- tr %>% ggplot(aes(year, n, colour=method, shape=method)) +
-                    geom_point(aes(colour = method)) +
-                    geom_smooth(aes(color = method)) +
-                    ylab("Count") +
-                    scale_x_continuous(name = "Year",
-                                       limits = c(1950,2020), 
-                                       breaks = seq(1950,2020,5)) +
-                    scale_y_continuous(name = "Count",
-                                       breaks = seq(0,150,25)) +
-                    scale_colour_discrete(name  ="Study type",
-                            breaks=c("clinical trial", "systematic review"),
-                            labels=c("Clinical Trial", "Systematic Review")) +
-                    scale_shape_discrete(name  ="Study type",
-                            breaks=c("clinical trial", "systematic review"),
-                            labels=c("Clinical Trial", "Systematic Review"))
+          geom_point(aes(colour = method)) +
+          geom_smooth(aes(color = method)) +
+          scale_x_continuous(name = "Year",
+                             limits = c(1950,2020), 
+                             breaks = seq(1950,2020,5)) +
+          scale_y_continuous(name = "Count",
+                             breaks = seq(0,150,25)) +
+          scale_colour_discrete(name  ="Study type",
+                                breaks=c("clinical trial", "systematic review"),
+                                labels=c("Clinical Trial", "Systematic Review")) +
+          scale_shape_discrete(name  ="Study type",
+                               breaks=c("clinical trial", "systematic review"),
+                               labels=c("Clinical Trial", "Systematic Review"))
 
 tr.trend
 ```
