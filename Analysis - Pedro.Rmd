@@ -54,10 +54,10 @@ tr.trend <- tr %>% ggplot(aes(year, n, colour=method, shape=method)) +
                              breaks = seq(0,150,25)) +
           scale_colour_discrete(name  ="Study type",
                                 breaks=c("clinical trial", "systematic review"),
-                                labels=c("Clinical Trial", "Systematic Review")) +
+                                labels=c("Clinical Trials", "Systematic Reviews")) +
           scale_shape_discrete(name  ="Study type",
                                breaks=c("clinical trial", "systematic review"),
-                               labels=c("Clinical Trial", "Systematic Review"))
+                               labels=c("Clinical Trials", "Systematic Reviews"))
 
 tr.trend
 ```
