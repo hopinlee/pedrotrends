@@ -1,0 +1,43 @@
+---
+title: "Analysis - Pedro"
+author: "Hopin Lee"
+date: "26/02/2019"
+output: html_document
+---
+
+```{r}
+#Set WD
+setwd("/Users/hopinlee/Google Drive/projects/Aidan - PEDRO review/Analysis - Pedro")
+
+#read data
+library(readr)
+ped_data <- read_csv("ped_data.csv")
+
+#load packages
+library('dplyr')
+library('tidyr')
+library('gapminder')
+library('ggplot2')
+library ('ggalt')
+library('forcats')
+library('R.utils') 
+library('png')
+library('grid')
+library('ggpubr')
+library('scales') 
+library('bbplot')
+
+#Remove data >2018 
+#assign data <2018 as pedro_data
+#pedro_data = subset(ped_data, year !="2018") 
+
+
+#assign data with clinical trials only as pedro_data_rct
+pedro_data_rct = subset(pedro_data, method !="systematic review")
+
+#assign data with systematic reviews only as pedro_data_sr
+pedro_data_sr = subset(pedro_data, method !="clinical trial")
+
+
+```
+
