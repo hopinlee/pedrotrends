@@ -218,3 +218,44 @@ heatmap
 
 
 
+=======
+# Trends in mean PEDro score over time
+```{r}
+
+# grouping the data by year, then calculating the mean PEDro score, then assigning that dataframe to "tr_score".
+tr_score <- pedro.data.rct %>% group_by(year) %>% summarise(mean.score = mean(score)) 
+
+# Plot "mean.score" by "year" 
+tr.score.trend <- tr_score %>% ggplot(aes(year, mean.score, colour=mean.score)) +
+  geom_point(aes(colour = mean.score)) +
+  geom_smooth(aes(color = mean.score)) +
+  scale_x_continuous(name = "Year",
+                     limits = c(1950,2020), 
+                     breaks = seq(1950,2020,5)) +
+  scale_y_continuous(name = "Meam PEDro Score",
+                     breaks = seq(0,10)) 
+#visualise plot
+tr.score.trend
+```
+
+# Trends in publications per therapy (acupuncture)  
+## Note: this code will be repeated for all therapies... results to be displayed in appendix
+```{r}
+
+# grouping the data by year, then sum the number studies for acupuncture, then assign to "tr.acu"
+tr.acu <- pedro.data %>% group_by(year) %>% summarise(total.acu = sum(rx_acu)) 
+
+# Plot "total.acu" by "year" 
+tr.acu.trend <- tr.acu %>% ggplot(aes(year, total.acu, colour=total.acu)) +
+  geom_point(aes(colour = total.acu)) +
+  geom_smooth(aes(color = total.acu)) +
+  scale_x_continuous(name = "Year",
+                     limits = c(1950,2020), 
+                     breaks = seq(1950,2020,5)) +
+  scale_y_continuous(name = "Count",
+                     breaks = seq(0,80,5)) 
+#visualise plot
+tr.acu.trend
+```
+
+>>>>>>> f07d0b4d1b9952d5963eed965f778904f7efb9c5
