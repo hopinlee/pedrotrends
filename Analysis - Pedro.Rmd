@@ -65,6 +65,7 @@ tr.trend
 ```
 
 
+<<<<<<< HEAD
 # Heatmap
 ```{r}
 # Filter to trials only then subset to scales only and rx only
