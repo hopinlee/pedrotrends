@@ -27,13 +27,15 @@ library('bbplot')
 
 #Remove data >2018 
 #assign data <2018 as pedro_data
-pedro.data = subset(ped_data, year !="2018") 
+pedro.df = subset(ped_data, year !="2018") %>% 
+          rename(studyid = "lbp_study_id")
+
 
 #assign data with clinical trials only as pedro_data_rct
-pedro.data.rct = subset(pedro.data, method !="systematic review")
+pedro.df.rct = subset(pedro.df, method !="systematic review")
 
 #assign data with systematic reviews only as pedro_data_sr
-pedro.data.sr = subset(pedro.data, method !="clinical trial")
+pedro.df.sr = subset(pedro.df, method !="clinical trial")
 
 # Note: Aidan - you could use the dplyr functions to do the above to keep the analysis tidy. No biggie though... 
 ```
@@ -41,7 +43,7 @@ pedro.data.sr = subset(pedro.data, method !="clinical trial")
 
 # Trends over time
 ```{r}
-tr <- pedro.data %>% group_by(year) %>% count(method)  # grouping the data by year, then counting the number of trials and reviews. Then assigning that dataframe to "tr". 
+tr <- pedro.df %>% group_by(year) %>% count(method)  # grouping the data by year, then counting the number of trials and reviews. Then assigning that dataframe to "tr". 
 
 # Now you want to plot "n" by "year" 
 tr.trend <- tr %>% ggplot(aes(year, n, colour=method, shape=method)) +
@@ -61,4 +63,158 @@ tr.trend <- tr %>% ggplot(aes(year, n, colour=method, shape=method)) +
 
 tr.trend
 ```
+
+
+# Heatmap
+```{r}
+# Filter to trials only then subset to scales only and rx only
+scales <- pedro.df %>% filter(method == "clinical trial") %>%  
+                              select(studyid, starts_with("scale"))
+rx <- pedro.df %>% filter(method == "clinical trial") %>% 
+                              select(studyid, starts_with("rx"))
+
+# reshape scales df
+scales <- scales %>% 
+          gather(-studyid, key = "scale_key", value = "scale_yn") %>% 
+          arrange(studyid)
+
+# reshape rx df -- then filter out all 0's 
+rx <- rx %>% 
+          gather(-studyid, key = "rx_key", value = "rx_yn") %>% 
+          arrange(studyid) 
+
+rx <- filter(rx, rx_yn==1)
+
+rxcount <- count(rx, rx_key)
+rxcount
+
+rx 
+scales
+
+# join rx to scales df, then sort by id and rx key
+joined <- full_join(scales, rx, by = "studyid") %>% 
+          arrange(studyid, rx_key)
+
+joined
+# group by and count
+joined <- joined %>% 
+          group_by(scale_key, rx_key) %>% 
+          count(scale_yn) %>% 
+          arrange(rx_key, scale_key) %>% 
+          select(rx_key, scale_key, scale_yn, n)
+          
+joined$scale_yn <- as.character(joined$scale_yn)  
+
+joined
+
+# spread and calculate percentage of satisfied / unsatisfied + satisfied
+df.heat <- spread(joined, scale_yn, n) %>% 
+          rename(unsatisfied = "0", satisfied = "1", Treatment = "rx_key", PEDROitem = "scale_key") %>% 
+          mutate_all(funs(replace(., is.na(.), 0))) %>% 
+          mutate(percentage_satisfied = 100*(satisfied/(unsatisfied+satisfied))) %>% 
+          mutate(total = satisfied + unsatisfied) %>% 
+          filter(!is.na(Treatment)) 
+
+df.heat <- df.heat %>% ungroup(PEDROitem) %>%  mutate(PEDROitem = fct_recode(PEDROitem, 
+                                                                  "11" = "scale11",
+                                                                  "10" = "scale10",
+                                                                  "9" = "scale9",
+                                                                  "8" = "scale8",
+                                                                  "7" = "scale7",
+                                                                  "6" = "scale6",
+                                                                  "5" = "scale5",
+                                                                  "4" = "scale4",
+                                                                  "3" = "scale3",
+                                                                  "2" = "scale2",
+                                                                  "1" = "scale1")) 
+
+df.heat$PEDROitem <- factor(df.heat$PEDROitem, levels = c("11", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1"))
+df.heat$Treatment <- factor(df.heat$Treatment, levels = c( "rx_acu",
+                                                           "rx_beh_mod",
+                                                           "rx_edu",
+                                                           "rx_electro",
+                                                           "rx_fitn",
+                                                           "rx_healthprom",
+                                                           "rx_hydro",
+                                                           "rx_neuro", 
+                                                           "rx_orthos",
+                                                           "rx_skill",
+                                                           "rx_strength",
+                                                           "rx_stretch",
+                                                           "rx_noapprop"  ))
+
+
+levels(as.factor(df.heat$PEDROitem))
+levels(as.factor(df.heat$Treatment))
+
+df.heat 
+```
+
+# CHECKS
+```{r}
+## check that the total no. of studies match n in rxcount -- they do.
+df.heat %>% filter(PEDROitem == "scale1")
+rxcount
+          
+# check total number of unique treatment identifiers from original to reshaped data
+rxcount %>% summarise(sum(n))
+rx %>% summarise(sum(rx_yn))
+```
+
+
+#plot
+```{r}
+heatmap <- ggplot(data = df.heat, 
+                  aes(x = Treatment, 
+                      y = PEDROitem,
+                      fill = percentage_satisfied)) + 
+          geom_tile() +
+          scale_fill_gradient(name = "% of studies",
+                              low = "red",
+                              high = "green") +
+          theme_bw() +
+          theme(strip.placement = "outside",
+                plot.title = element_text(size = 15, hjust = 0.5),
+                axis.title.x = element_blank(),
+                axis.text.x = element_text(size = 13, angle = 45, hjust = 1),
+                axis.text.y = element_text(size = 13), 
+                legend.title = element_text(size = 13),
+                strip.background = element_rect(fill = "#EEEEEE", color = "#FFFFFF")) +
+          ggtitle(label = "% of studies that satisfy PEDRO item \n (since 1955 to 2017)") +
+          scale_y_discrete("", labels=c("11" = "11. Point measure & variability",
+                                        "10" = "10. Between group comparison",
+                                        "9" = "9. Intention to treat",
+                                        "8" = "8. >85% follow-up for at least 1 outcome",
+                                        "7" = "7. Assessor blinding",
+                                        "6" = "6. Therapist blinding",
+                                        "5" = "5. Subject blinding",
+                                        "4" = "4. Baseline balance",
+                                        "3" = "3. Allocation concealment",
+                                        "2" = "2. Random allocation",
+                                        "1" = "1. Eligibility")) +
+          
+          scale_x_discrete("", labels=c("rx_stretch" = "Stretching",
+                                        "rx_strength" = "Strengthening",
+                                        "rx_skill" = "Skill training",
+                                        "rx_orthos" = "Orthosis",
+                                        "rx_noapprop" = "Other",
+                                        "rx_neuro" = "Neurological", 
+                                        "rx_hydro" = "Hydrotherapy",
+                                        "rx_healthprom" = "Health Promotion",
+                                        "rx_fitn" = "Fitness",
+                                        "rx_electro" = "Electrotherapy",
+                                        "rx_edu" = "Education",
+                                        "rx_beh_mod" = "Behaviour modification",
+                                        "rx_acu" = "Acupuncture"))  ## Aidan - would be good to check these labels if you can
+
+heatmap
+```
+
+
+
+
+
+
+
+
 
