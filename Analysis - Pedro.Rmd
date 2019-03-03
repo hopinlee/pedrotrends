@@ -14,59 +14,273 @@ ped_data <- read_csv("ped_data.csv")
 #load packages
 library('dplyr')
 library('tidyr')
-library('gapminder')
 library('ggplot2')
-library ('ggalt')
 library('forcats')
-library('R.utils') 
-library('png')
-library('grid')
-library('ggpubr')
-library('scales') 
-library('bbplot')
 
 #Remove data >2018 
 #assign data <2018 as pedro_data
 pedro.df = subset(ped_data, year !="2018") %>% 
           rename(studyid = "lbp_study_id")
 
-
 #assign data with clinical trials only as pedro_data_rct
-pedro.df.rct = subset(pedro.df, method !="systematic review")
+#pedro.df.rct = subset(pedro.df, method !="systematic review")
 
 #assign data with systematic reviews only as pedro_data_sr
-pedro.df.sr = subset(pedro.df, method !="clinical trial")
+#pedro.df.sr = subset(pedro.df, method !="clinical trial")
 
 # Note: Aidan - you could use the dplyr functions to do the above to keep the analysis tidy. No biggie though... 
 ```
 
 
-# Trends over time
+# Publication volume over time
 ```{r}
 tr <- pedro.df %>% group_by(year) %>% count(method)  # grouping the data by year, then counting the number of trials and reviews. Then assigning that dataframe to "tr". 
 
 # Now you want to plot "n" by "year" 
-tr.trend <- tr %>% ggplot(aes(year, n, colour=method, shape=method)) +
-          geom_point(aes(colour = method)) +
-          geom_smooth(aes(color = method)) +
-          scale_x_continuous(name = "Year",
-                             limits = c(1950,2020), 
-                             breaks = seq(1950,2020,5)) +
-          scale_y_continuous(name = "Count",
-                             breaks = seq(0,150,25)) +
-          scale_colour_discrete(name  ="Study type",
-                                breaks=c("clinical trial", "systematic review"),
-                                labels=c("Clinical Trials", "Systematic Reviews")) +
-          scale_shape_discrete(name  ="Study type",
-                               breaks=c("clinical trial", "systematic review"),
-                               labels=c("Clinical Trials", "Systematic Reviews"))
+tr.trend <- tr %>% 
+        ggplot(aes(year, n, colour=method, shape=method)) +
+        geom_line(size=1) +
+        scale_x_continuous(name = "Year",
+                           limits = c(1950,2020), 
+                           breaks = seq(1950,2020,5)) +
+        scale_y_continuous(name = "Number of studies",
+                           breaks = seq(0,150,25)) +
+        scale_colour_discrete(name  ="Study type",
+                              breaks=c("clinical trial", "systematic review"),
+                              labels=c("Clinical Trials", "Systematic Reviews")) +
+        scale_shape_discrete(name  ="Study type",
+                             breaks=c("clinical trial", "systematic review"),
+                             labels=c("Clinical Trials", "Systematic Reviews")) +
+  ggtitle("Volume of studies published between 1955 and 2018")
+
 
 tr.trend
 ```
 
 
-<<<<<<< HEAD
-# Heatmap
+# Publication volume per therapy (faceted)
+```{r}
+# prep data
+tt <- pedro.df %>% select(studyid, year, method, starts_with("rx"))
+
+tt.tidy <- tt %>% gather(-studyid, -year, -method, key = "rx_type", value = "rx_yn") %>% 
+  filter(rx_yn==1) %>% 
+  arrange(studyid, year, method) %>% 
+  group_by(year, method) %>% 
+  count(rx_type) %>% 
+  filter(rx_type != "rx_noapprop") ## excluded other category to get "facet" into an even number
+
+tt.tidy
+
+# plot
+therapy.trends <- ggplot(tt.tidy, aes(year, n, colour = rx_type)) +
+  geom_line() +
+  scale_x_continuous(name = "Year",
+                     limits = c(1950,2020), 
+                     breaks = seq(1950,2020,5)) +
+  scale_y_continuous(name = "Number of studies",
+                     breaks = seq(0,150,25))
+  
+therapy.trends  
+
+
+## Too messy! so facet 
+
+# create a function for the labeller argument 
+
+names <-  list("rx_stretch" = "Stretching",
+             "rx_strength" = "Strengthening",
+             "rx_skill" = "Skill training",
+             "rx_orthos" = "Orthosis", 
+             "rx_neuro" = "Neurological", 
+             "rx_hydro" = "Hydrotherapy",
+             "rx_healthprom" = "Health Promotion",
+             "rx_fitn" = "Fitness",
+             "rx_electro" = "Electrotherapy",
+             "rx_edu" = "Education",
+             "rx_beh_mod" = "Behaviour modification",
+             "rx_acu" = "Acupuncture")
+
+lab <- function(variable,value){
+  return(names[value])
+}
+
+#plot
+therapy.trends <- ggplot(tt.tidy, aes(year, n, colour = method)) +
+  geom_line() +
+  scale_x_continuous(name = "",
+                     limits = c(1950,2020), 
+                     breaks = seq(1950,2020,10)) +
+  scale_y_continuous(name = "Number of studies",
+                     breaks = seq(0,150,25)) +
+  scale_colour_discrete(name  ="Study type",
+                        breaks=c("clinical trial", "systematic review"),
+                        labels=c("Clinical Trials", "Systematic Reviews")) + 
+  facet_wrap(~ rx_type, ncol=3, labeller =lab) +
+  ggtitle("Volume of studies published per therapy type")
+
+therapy.trends
+```
+
+
+
+
+=======
+# Mean PEDro score over time
+```{r}
+# grouping the data by year, then calculating the mean PEDro score, then assigning that dataframe to "tr_score".
+tr_score <- pedro.df %>% filter(method == "clinical trial") %>% group_by(year) %>% summarise(mean.score = mean(score)) 
+
+# Plot "mean.score" by "year" 
+tr.score.trend <- tr_score %>% ggplot(aes(year, mean.score)) +
+  geom_point() +
+  geom_smooth() +
+  scale_x_continuous(name = "Year",
+                     limits = c(1950,2020), 
+                     breaks = seq(1950,2020,5)) +
+  scale_y_continuous(name = "Mean PEDro Score",
+                     breaks = seq(0,10))  +
+  ggtitle("Mean PEDro score over time")
+
+#visualise plot
+tr.score.trend
+```
+
+
+# Percentage of PEDro item satisfied over time (faceted) -- dunno how useful this is... 
+```{r}
+# tidy data
+pi <- pedro.df %>% filter(method == "clinical trial") %>%  
+                              select(studyid, year, starts_with("scale"))
+
+
+pi.tidy <-pi %>% gather(-studyid, -year, key = "scale_item", value = "scale_yn") %>% 
+  group_by(scale_item, year) %>% 
+  count(scale_yn) %>% 
+  arrange(year, scale_item) %>% 
+  select(year, scale_item, scale_yn, n)
+
+pi.tidy$scale_yn <- as.character(pi.tidy$scale_yn)  
+  
+pi.tidy <- spread(pi.tidy, scale_yn, n) %>% 
+  rename(unsatisfied = "0", satisfied = "1") %>% 
+          mutate_all(funs(replace(., is.na(.), 0)))  %>% 
+          mutate(percentage_satisfied = 100*(satisfied/(unsatisfied+satisfied))) %>% 
+          mutate(total = satisfied + unsatisfied)  
+
+pi.tidy
+          
+# create a function for the labeller argument 
+pi.tidy <- pi.tidy %>% ungroup(scale_item) %>%  mutate(scale_item = fct_recode(scale_item, 
+                                                                  "11" = "scale11",
+                                                                  "10" = "scale10",
+                                                                  "9" = "scale9",
+                                                                  "8" = "scale8",
+                                                                  "7" = "scale7",
+                                                                  "6" = "scale6",
+                                                                  "5" = "scale5",
+                                                                  "4" = "scale4",
+                                                                  "3" = "scale3",
+                                                                  "2" = "scale2",
+                                                                  "1" = "scale1")) 
+
+pi.tidy$scale_item <- factor(pi.tidy$scale_item, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"))
+
+names <- list("11" = "11. Point measure & variability",
+  "10" = "10. Between group comparison",
+  "9" = "9. Intention to treat",
+  "8" = "8. >85% follow-up for at least 1 outcome",
+  "7" = "7. Assessor blinding",
+  "6" = "6. Therapist blinding",
+  "5" = "5. Subject blinding",
+  "4" = "4. Baseline balance",
+  "3" = "3. Allocation concealment",
+  "2" = "2. Random allocation",
+  "1" = "1. Eligibility")
+
+
+lab <- function(variable,value){
+  return(names[value])
+}
+
+#plot
+pedroitem.trends <- ggplot(pi.tidy, aes(year, percentage_satisfied)) +
+  geom_line() +
+  scale_x_continuous(name = "",
+                     limits = c(1950,2020), 
+                     breaks = seq(1950,2020,10)) +
+  scale_y_continuous(name = "Number of studies",
+                     breaks = seq(0,150,25)) + 
+  facet_wrap(~ scale_item, ncol=3)
+
+pedroitem.trends
+
+```
+
+
+# Pedro item trends as bar chart
+```{r}
+# tidy data
+pi <- pedro.df %>% filter(method == "clinical trial") %>%  
+                              select(studyid, year, starts_with("scale"))
+
+
+pi.tidy <-pi %>% gather(-studyid, -year, key = "scale_item", value = "scale_yn") %>% 
+  mutate(total = 1)
+
+pi.tidy$scale_yn <- factor(pi.tidy$scale_yn)
+pi.tidy$scale_item <- factor(pi.tidy$scale_item)
+
+pi.tidy
+
+# reorder and rename factor vars
+pi.tidy <- pi.tidy %>% ungroup(scale_item) %>%  mutate(scale_item = fct_recode(scale_item, 
+                                                                  "Item 1" = "scale1",
+                                                                  "Item 2" = "scale2", 
+                                                                  "Item 3" = "scale3",
+                                                                  "Item 4" = "scale4",
+                                                                  "Item 5" = "scale5",
+                                                                  "Item 6" = "scale6",
+                                                                  "Item 7" = "scale7",
+                                                                  "Item 8" = "scale8",
+                                                                  "Item 9" = "scale9",
+                                                                  "Item 10" = "scale10",
+                                                                  "Item 11" = "scale11")) 
+
+pi.tidy$scale_item <- factor(pi.tidy$scale_item, levels = c("Item 1", "Item 2", "Item 3", "Item 4", "Item 5", "Item 6", "Item 7", "Item 8", "Item 9", "Item 10", "Item 11"))
+
+pi.tidy <- pi.tidy %>% ungroup(scale_yn) %>%  mutate(scale_yn = fct_recode(scale_yn, 
+                                                                  "Unsatisfied" = "0",
+                                                                  "Satisfied" = "1", 
+                                                                  )) 
+
+pi.tidy$scale_yn <- factor(pi.tidy$scale_yn, levels = c("Unsatisfied", "Satisfied"))
+
+# plot
+bar <- ggplot(pi.tidy, aes(x=year)) +
+    geom_bar(aes(fill=scale_yn)) +
+  scale_x_continuous(name = "",
+                     limits = c(1950,2020), 
+                     breaks = seq(1950,2020,10)) +
+  scale_y_continuous(name = "Number of trials",
+                     breaks = seq(0,150,25)) + 
+  scale_fill_discrete(name = "") +
+  facet_wrap(~ scale_item, ncol=3) +
+  ggtitle("Number of trials that satisfy each PEDro score")
+  
+bar
+```
+
+
+
+
+
+
+
+
+
+
+# Heatmap of  % pedro item satisfied vs therapy type
 ```{r}
 # Filter to trials only then subset to scales only and rx only
 scales <- pedro.df %>% filter(method == "clinical trial") %>%  
@@ -130,6 +344,9 @@ df.heat <- df.heat %>% ungroup(PEDROitem) %>%  mutate(PEDROitem = fct_recode(PED
                                                                   "1" = "scale1")) 
 
 df.heat$PEDROitem <- factor(df.heat$PEDROitem, levels = c("11", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1"))
+
+
+
 df.heat$Treatment <- factor(df.heat$Treatment, levels = c( "rx_acu",
                                                            "rx_beh_mod",
                                                            "rx_edu",
@@ -142,7 +359,7 @@ df.heat$Treatment <- factor(df.heat$Treatment, levels = c( "rx_acu",
                                                            "rx_skill",
                                                            "rx_strength",
                                                            "rx_stretch",
-                                                           "rx_noapprop"  ))
+                                                           "rx_noapprop"))
 
 
 levels(as.factor(df.heat$PEDROitem))
@@ -157,7 +374,7 @@ df.heat
 df.heat %>% filter(PEDROitem == "scale1")
 rxcount
           
-# check total number of unique treatment identifiers from original to reshaped data
+# check total number of unique treatment identifiers from original to reshaped df
 rxcount %>% summarise(sum(n))
 rx %>% summarise(sum(rx_yn))
 ```
@@ -218,45 +435,3 @@ heatmap
 
 
 
-
-=======
-# Trends in mean PEDro score over time
-```{r}
-
-# grouping the data by year, then calculating the mean PEDro score, then assigning that dataframe to "tr_score".
-tr_score <- pedro.data.rct %>% group_by(year) %>% summarise(mean.score = mean(score)) 
-
-# Plot "mean.score" by "year" 
-tr.score.trend <- tr_score %>% ggplot(aes(year, mean.score, colour=mean.score)) +
-  geom_point(aes(colour = mean.score)) +
-  geom_smooth(aes(color = mean.score)) +
-  scale_x_continuous(name = "Year",
-                     limits = c(1950,2020), 
-                     breaks = seq(1950,2020,5)) +
-  scale_y_continuous(name = "Meam PEDro Score",
-                     breaks = seq(0,10)) 
-#visualise plot
-tr.score.trend
-```
-
-# Trends in publications per therapy (acupuncture)  
-## Note: this code will be repeated for all therapies... results to be displayed in appendix
-```{r}
-
-# grouping the data by year, then sum the number studies for acupuncture, then assign to "tr.acu"
-tr.acu <- pedro.data %>% group_by(year) %>% summarise(total.acu = sum(rx_acu)) 
-
-# Plot "total.acu" by "year" 
-tr.acu.trend <- tr.acu %>% ggplot(aes(year, total.acu, colour=total.acu)) +
-  geom_point(aes(colour = total.acu)) +
-  geom_smooth(aes(color = total.acu)) +
-  scale_x_continuous(name = "Year",
-                     limits = c(1950,2020), 
-                     breaks = seq(1950,2020,5)) +
-  scale_y_continuous(name = "Count",
-                     breaks = seq(0,80,5)) 
-#visualise plot
-tr.acu.trend
-```
-
->>>>>>> f07d0b4d1b9952d5963eed965f778904f7efb9c5
